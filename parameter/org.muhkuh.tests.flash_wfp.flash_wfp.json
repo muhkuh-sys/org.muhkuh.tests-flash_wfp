@@ -1,0 +1,28 @@
+{
+  "$schema" : "./schema/parameter.schema.json",
+
+
+  "parameter": [
+    {
+      "name": "plugin",
+      "description": "A pattern for the plugin to use.",
+      "required": "false"
+    },
+    {
+      "name": "plugin_options",
+      "description": "Plugin options as a JSON object.",
+      "required": "false"
+    },
+    {
+      "name": "wfp_file",
+      "description": "The WFP file to flash.",
+      "required": "true"
+    },
+    {
+      "name": "conditions",
+      "description": "Comma separated conditions for the WFP contents.",
+      "required": "true",
+      "default": ""
+    }
+  ]
+}
