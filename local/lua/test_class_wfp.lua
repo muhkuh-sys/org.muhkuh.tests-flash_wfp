@@ -136,7 +136,6 @@ function TestClassWFP:run()
   local tLog = self.tLog
   local tFlasher = self.tFlasher
   local json = self.json
-  local mhash = self.mhash
   local pl = self.pl
 
   ----------------------------------------------------------------------
@@ -194,39 +193,6 @@ function TestClassWFP:run()
     tLog.error('%s', strMsg)
     error(strMsg)
   end
-
-  -- Generate the hash.
-  local strWfpHash
-  local tState = mhash.mhash_state()
-  tState:init(mhash.MHASH_SHA384)
-  -- Open the file and read it in chunks.
-  local tFile, strMessage = io.open(strWfpFile, 'rb')
-  if tFile==nil then
-    local strMsg = string.format('Failed to open the file "%s" for reading: %s', strWfpFile, strMessage)
-    tLog.error('%s', strMsg)
-    error(strMsg)
-  else
-    repeat
-      local tChunk = tFile:read(16384)
-      if tChunk~=nil then
-        tState:hash(tChunk)
-      end
-    until tChunk==nil
-    tFile:close()
-
-    -- Get the binary hash.
-    local strHashBin = tState:hash_end()
-
-    -- Convert the binary hash into a string.
-    local aHashHex = {}
-    for iCnt=1,string.len(strHashBin) do
-      table.insert(aHashHex, string.format("%02x", string.byte(strHashBin, iCnt)))
-    end
-    strWfpHash = table.concat(aHashHex)
-  end
-
-  -- Get the file size of the WFP.
-  local ulWfpSize = pl.path.attrib(strWfpFile).size
 
   local strWfpConditions = atParameter['conditions']:get()
   local astrWfpConditions = pl.stringx.split(strWfpConditions, ',')
@@ -450,9 +416,9 @@ function TestClassWFP:run()
   end
 
   _G.tester:sendLogEvent('muhkuh.attribute.firmware', {
-    file = pl.path.basename(strWfpFile),
-    hash = strWfpHash,
-    size = ulWfpSize
+    file = tDataProviderItem.name,
+    hash = tDataProviderItem.hash,
+    size = tDataProviderItem.size
   })
 
   _G.tester:clearInteraction()
