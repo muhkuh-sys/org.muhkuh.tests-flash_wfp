@@ -158,21 +158,35 @@ function TestClassWFP:run()
 
   -- Parse the wfp_dp option.
   local strDataProviderItem = atParameter['wfp_dp']:get()
-  local tItem = _G.tester:getDataItem(strDataProviderItem)
-  if tItem==nil then
+  local tDataProviderItem = _G.tester:getDataItem(strDataProviderItem)
+  if tDataProviderItem==nil then
     local strMsg = string.format('No data provider item found with the name "%s".', strDataProviderItem)
     tLog.error(strMsg)
     error(strMsg)
   end
-  local strWfpFile = tItem.path
-  if strWfpFile==nil then
+  local astrRequiredElements = {
+    'hash',
+    'name',
+    'path',
+    'size'
+  }
+  local astrMissingElements = {}
+  for _, strItem in ipairs(astrRequiredElements) do
+    if tDataProviderItem[strItem]==nil then
+      table.insert(astrMissingElements, strItem)
+    end
+  end
+  if (#astrMissingElements)>0 then
     local strMsg = string.format(
-      'The data provider item "%s" has no "path" attribute. Is this really a suitable provider for a WFP file?',
-      strDataProviderItem
+      'The following items are missing in the data provider item "%s": %s '..
+      'Is this really a suitable provider for a WFP file?',
+      strDataProviderItem,
+      table.concat(astrMissingElements, ',')
     )
     tLog.error(strMsg)
     error(strMsg)
   end
+  local strWfpFile = tDataProviderItem.path
 
   -- Does the file exist?
   if self.pl.path.exists(strWfpFile)~=strWfpFile then
