@@ -84,8 +84,22 @@ end
 
 
 function TestClassWFP:__eraseMessage(a, b)
-  if a~='' then
-    self.tLog.debug('[erasing] %s', tostring(a))
+  if type(a) == "string" and string.len(a) > 0 then
+      local strCnt, strMax = string.match(a, "%% ([%x%X]+)/([%x%X]+)")
+      if strCnt and strMax then
+          local ulCnt = tonumber(strCnt, 16)
+          local ulMax = tonumber(strMax, 16)
+          if ulCnt and ulMax then
+              return self:__eraseProgress(ulCnt, ulMax)
+          else
+            self.tLog.debug("[CALLBACK MESSAGE ERASE] %s", a)
+          end
+      else
+          if string.sub(a, -1) == "\n" then
+              a = string.sub(a, 1, -2)
+          end
+          self.tLog.debug("[CALLBACK MESSAGE ERASE] %s", a)
+      end
   end
 
   return self.fTestIsNotCanceled
@@ -94,10 +108,29 @@ end
 
 
 function TestClassWFP:__eraseProgress(ulCnt, ulMax)
-  self.tLog.debug('[erase progress] %s / %s', tostring(ulCnt), tostring(ulMax))
-
+  local ulTerm
+  local fPercent
   local atProgress = self.atProgressInfo
-  atProgress[self.uiCurrentFile].pos_erase = ulCnt
+  local iteration_erase = atProgress[self.uiCurrentFile].iteration_erase
+  local total_erase = atProgress[self.uiCurrentFile].total_erase
+
+  ulCnt = ulCnt or 1
+  ulMax = ulMax or 1
+
+  if (iteration_erase <= total_erase) and (ulCnt <= ulMax) then
+    ulTerm = (ulCnt / ulMax) * (1 / total_erase) + ((iteration_erase - 1) / total_erase)
+    fPercent = math.floor(ulTerm * 100)
+    self.tLog.debug("[CALLBACK PROGRESS ERASE] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_erase,total_erase)
+  end
+
+  if ulCnt >= ulMax then
+    if iteration_erase < total_erase then
+      atProgress[self.uiCurrentFile].iteration_erase = iteration_erase + 1
+    else
+      atProgress[self.uiCurrentFile].finalize_erase = true
+    end
+  end
+  atProgress[self.uiCurrentFile].pos_erase = fPercent
 
   local strJson = self.json.encode(atProgress)
   _G.tester:setInteractionData(strJson)
@@ -108,8 +141,22 @@ end
 
 
 function TestClassWFP:__flashMessage(a, b)
-  if a~='' then
-    self.tLog.debug('[flashing] %s', tostring(a))
+  if type(a) == "string" and string.len(a) > 0 then
+      local strCnt, strMax = string.match(a, "%% ([%x%X]+)/([%x%X]+)")
+      if strCnt and strMax then
+          local ulCnt = tonumber(strCnt, 16)
+          local ulMax = tonumber(strMax, 16)
+          if ulCnt and ulMax then
+              return self:__flashProgress(ulCnt, ulMax)
+          else
+            self.tLog.debug("[CALLBACK MESSAGE FLASH] %s", a)
+          end
+      else
+          if string.sub(a, -1) == "\n" then
+              a = string.sub(a, 1, -2)
+          end
+          self.tLog.debug("[CALLBACK MESSAGE FLASH] %s", a)
+      end
   end
 
   return self.fTestIsNotCanceled
@@ -118,10 +165,32 @@ end
 
 
 function TestClassWFP:__flashProgress(ulCnt, ulMax)
-  self.tLog.debug('[flash progress] %s / %s', tostring(ulCnt), tostring(ulMax))
-
+  local ulTerm
+  local fPercent
   local atProgress = self.atProgressInfo
-  atProgress[self.uiCurrentFile].pos_flash = ulCnt
+  local iteration_flash = atProgress[self.uiCurrentFile].iteration_flash
+  local total_flash = atProgress[self.uiCurrentFile].total_flash
+
+  ulCnt = ulCnt or 1
+  ulMax = ulMax or 1
+
+  if (iteration_flash <= total_flash) and (ulCnt <= ulMax) then
+    ulTerm = (ulCnt / ulMax) * (1 / total_flash) + ((iteration_flash - 1) / total_flash)
+    fPercent = math.floor(ulTerm * 100)
+    self.tLog.debug("[CALLBACK PROGRESS FLASH] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_flash,total_flash)
+  end
+
+  if ulCnt >= ulMax then
+    if iteration_flash < total_flash then
+      atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
+    else
+      atProgress[self.uiCurrentFile].finalize_flash = true
+    end
+  end
+
+  -- self.tLog.debug('[flash progress] %s / %s', tostring(ulCnt), tostring(ulMax))
+
+  atProgress[self.uiCurrentFile].pos_flash = fPercent
 
   local strJson = self.json.encode(atProgress)
   _G.tester:setInteractionData(strJson)
