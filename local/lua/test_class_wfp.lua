@@ -170,21 +170,27 @@ function TestClassWFP:__flashProgress(ulCnt, ulMax)
   local atProgress = self.atProgressInfo
   local iteration_flash = atProgress[self.uiCurrentFile].iteration_flash
   local total_flash = atProgress[self.uiCurrentFile].total_flash
+  local erase_command = atProgress[self.uiCurrentFile].erase_command
 
   ulCnt = ulCnt or 1
   ulMax = ulMax or 1
 
-  if (iteration_flash <= total_flash) and (ulCnt <= ulMax) then
-    ulTerm = (ulCnt / ulMax) * (1 / total_flash) + ((iteration_flash - 1) / total_flash)
-    fPercent = math.floor(ulTerm * 100)
-    self.tLog.debug("[CALLBACK PROGRESS FLASH] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_flash,total_flash)
-  end
+  if erase_command then
+    atProgress[self.uiCurrentFile].iteration_flash = total_flash
+  else
+    if (iteration_flash <= total_flash) and (ulCnt <= ulMax) then
+      ulTerm = (ulCnt / ulMax) * (1 / total_flash) + ((iteration_flash - 1) / total_flash)
+      fPercent = math.floor(ulTerm * 100)
+      self.tLog.debug("[CALLBACK PROGRESS FLASH] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_flash,total_flash)
+    end
 
-  if ulCnt >= ulMax then
-    if iteration_flash < total_flash then
-      atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
-    else
-      atProgress[self.uiCurrentFile].finalize_flash = true
+    if ulCnt >= ulMax then
+      -- if iteration_flash < total_flash then
+      --   atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
+      -- else
+      atProgress[self.uiCurrentFile].iteration_flash = total_flash
+        atProgress[self.uiCurrentFile].finalize_flash = true
+      -- end
     end
   end
 
@@ -314,7 +320,7 @@ function TestClassWFP:run()
     for _, tData in ipairs(tTargetFlash.atData) do
       local strCondition = tData.strCondition
       if tWfpControl:matchCondition(atWfpConditions, strCondition)==true then
-        -- Is this an erase command?
+        -- Is this an erase command? Erase: only Erase, no Flash
         if tData.strFile==nil then
           local strDisplay = tData.strDisplay
           local ulOffset = tData.ulOffset
@@ -324,9 +330,17 @@ function TestClassWFP:run()
           end
           local tAttr = {
             display = strDisplay,
-            size = ulSize,
+            -- size = ulSize,
+            size = 100,
             pos_erase = 0,
-            pos_flash = 0
+            pos_flash = 0,
+            total_flash = nil, -- must be defined with the function 'numb_flash_progress'
+            iteration_flash = 1,
+            iteration_erase = 1,
+            total_erase = 7,
+            finalize_erase = false,
+            finalize_flash = false,
+            erase_command = true
           }
           table.insert(atProgress, tAttr)
         else
@@ -344,9 +358,17 @@ function TestClassWFP:run()
             end
             local tAttr = {
               display = strDisplay,
-              size = sizData,
+              -- size = sizData,
+              size = 100,
               pos_erase = 0,
-              pos_flash = 0
+              pos_flash = 0,
+              iteration_flash = 1,
+              total_flash = nil, -- must be defined with the function 'numb_flash_progress'
+              iteration_erase = 1,
+              total_erase = 7,
+              finalize_erase = false,
+              finalize_flash = false,
+              erase_command = false
             }
             table.insert(atProgress, tAttr)
           end
@@ -419,6 +441,7 @@ function TestClassWFP:run()
         if tWfpControl:matchCondition(atWfpConditions, strCondition)~=true then
           tLog.info('Not processing erase : prevented by condition.')
         else
+          -- self.uiCurrentFile = self.uiCurrentFile + 1
           local strMsg
 
           local this = self
@@ -466,13 +489,51 @@ function TestClassWFP:run()
                 error('failed to erase')
               end
 --              self:__eraseProgress(100, 100)
+              local iteration_erase = self.atProgressInfo[self.uiCurrentFile].iteration_erase
+              local total_erase = self.atProgressInfo[self.uiCurrentFile].total_erase
+              local finalize_erase = self.atProgressInfo[self.uiCurrentFile].finalize_erase
+              -- empty flash area - finalize progress
+              if tResult == true and iteration_erase < total_erase then
+                repeat
+                  self:__eraseProgress()
+                  finalize_erase = self.atProgressInfo[self.uiCurrentFile].finalize_erase
+                until finalize_erase == true
+              end
+              -- simulate flashArea to calculate total number of intervals of the flash process
+              local numb_flash_progress = function()
+                local ultotal = 0
+                local ulDataOffset = 0
+                local ulDataByteSize = strData:len()
+                local ulChunkSize
+                local strChunk
+                local ulBufferLen = aAttr.ulBufferLen
+                while ulDataOffset < ulDataByteSize do
+                  local ulEnd = ulDataOffset + ulBufferLen
+                  if ulEnd < ulDataByteSize then
+                    ulEnd = ulEnd - (ulEnd % 16)
+                  end
+                  strChunk = strData:sub(ulDataOffset + 1, ulEnd)
+                  ulChunkSize = strChunk:len()
 
-                fOk, strMsg = tFlasher:flashArea(tPlugin, aAttr, ulOffset, strData, fnFlashMessage, fnFlashProgress)
-                if fOk~=true then
-                  tLog.error('Failed to flash the area: %s', strMsg)
-                  error('failed to flash')
+                  ulDataOffset = ulDataOffset + ulChunkSize
+                  ultotal = ultotal + 1
                 end
---                self:__flashProgress(100, 100)
+                return 4 * ultotal
+                -- 4 times - For each progress one interval:
+                -- functions in flashArea:
+                -- write_image - only one progress -> 1
+                -- flash (calls callFlasher) - one progress in callback_progress - two progresses in callback_message -> 3
+              end
+
+              self.atProgressInfo[self.uiCurrentFile].total_flash = numb_flash_progress()
+              tLog.debug("total_flash calculated from numb_flash_progress: [%d] %d",self.uiCurrentFile, numb_flash_progress())
+
+              fOk, strMsg = tFlasher:flashArea(tPlugin, aAttr, ulOffset, strData, fnFlashMessage, fnFlashProgress)
+              if fOk~=true then
+                tLog.error('Failed to flash the area: %s', strMsg)
+                error('failed to flash')
+              end
+--               self:__flashProgress(100, 100)
             end
           end
         end
