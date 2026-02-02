@@ -170,28 +170,22 @@ function TestClassWFP:__flashProgress(ulCnt, ulMax)
   local atProgress = self.atProgressInfo
   local iteration_flash = atProgress[self.uiCurrentFile].iteration_flash
   local total_flash = atProgress[self.uiCurrentFile].total_flash
-  local erase_command = atProgress[self.uiCurrentFile].erase_command
 
   ulCnt = ulCnt or 1
   ulMax = ulMax or 1
 
-  if erase_command then
+  if (iteration_flash <= total_flash) and (ulCnt <= ulMax) then
+    ulTerm = (ulCnt / ulMax) * (1 / total_flash) + ((iteration_flash - 1) / total_flash)
+    fPercent = math.floor(ulTerm * 100)
+    self.tLog.debug("[CALLBACK PROGRESS FLASH] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_flash,total_flash)
+  end
+  if ulCnt >= ulMax then
+    -- if iteration_flash < total_flash then
+    --   atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
+    -- else
     atProgress[self.uiCurrentFile].iteration_flash = total_flash
-  else
-    if (iteration_flash <= total_flash) and (ulCnt <= ulMax) then
-      ulTerm = (ulCnt / ulMax) * (1 / total_flash) + ((iteration_flash - 1) / total_flash)
-      fPercent = math.floor(ulTerm * 100)
-      self.tLog.debug("[CALLBACK PROGRESS FLASH] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_flash,total_flash)
-    end
-
-    if ulCnt >= ulMax then
-      -- if iteration_flash < total_flash then
-      --   atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
-      -- else
-      atProgress[self.uiCurrentFile].iteration_flash = total_flash
-        atProgress[self.uiCurrentFile].finalize_flash = true
-      -- end
-    end
+    atProgress[self.uiCurrentFile].finalize_flash = true
+    -- end
   end
 
   -- self.tLog.debug('[flash progress] %s / %s', tostring(ulCnt), tostring(ulMax))
@@ -340,7 +334,6 @@ function TestClassWFP:run()
             total_erase = 7,
             finalize_erase = false,
             finalize_flash = false,
-            erase_command = true
           }
           table.insert(atProgress, tAttr)
         else
@@ -368,7 +361,6 @@ function TestClassWFP:run()
               total_erase = 7,
               finalize_erase = false,
               finalize_flash = false,
-              erase_command = false
             }
             table.insert(atProgress, tAttr)
           end
@@ -441,7 +433,7 @@ function TestClassWFP:run()
         if tWfpControl:matchCondition(atWfpConditions, strCondition)~=true then
           tLog.info('Not processing erase : prevented by condition.')
         else
-          -- self.uiCurrentFile = self.uiCurrentFile + 1
+          self.uiCurrentFile = self.uiCurrentFile + 1
           local strMsg
 
           local this = self
@@ -452,6 +444,17 @@ function TestClassWFP:run()
           if fOk~=true then
             tLog.error('Failed to erase the area: %s', strMsg)
             error('failed to erase')
+          end
+--            self:__eraseProgress(100, 100)
+          local iteration_erase = self.atProgressInfo[self.uiCurrentFile].iteration_erase
+          local total_erase = self.atProgressInfo[self.uiCurrentFile].total_erase
+          local finalize_erase = self.atProgressInfo[self.uiCurrentFile].finalize_erase
+          -- empty flash area - finalize progress
+          if tResult == true and iteration_erase < total_erase then
+            repeat
+              self:__eraseProgress()
+              finalize_erase = self.atProgressInfo[self.uiCurrentFile].finalize_erase
+            until finalize_erase == true
           end
         end
       else
