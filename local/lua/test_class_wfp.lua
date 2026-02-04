@@ -147,7 +147,11 @@ function TestClassWFP:__flashMessage(a, b)
           local ulCnt = tonumber(strCnt, 16)
           local ulMax = tonumber(strMax, 16)
           if ulCnt and ulMax then
-              return self:__flashProgress(ulCnt, ulMax)
+            --! IGNORE Progresses of callback messages only for flash messages due to the differences between SQI und IF flash
+            -- return self:__flashProgress(ulCnt, ulMax)
+            local ulTerm = (ulCnt / ulMax)
+            local fPercent = math.floor(ulTerm * 100)
+            self.tLog.debug("[CALLBACK MESSAGE FLASH] %d%% (%d/%d)", fPercent, ulCnt, ulMax)
           else
             self.tLog.debug("[CALLBACK MESSAGE FLASH] %s", a)
           end
@@ -180,15 +184,12 @@ function TestClassWFP:__flashProgress(ulCnt, ulMax)
     self.tLog.debug("[CALLBACK PROGRESS FLASH] %d%% (%d/%d) (%d/%d)", fPercent, ulCnt, ulMax,iteration_flash,total_flash)
   end
   if ulCnt >= ulMax then
-    -- if iteration_flash < total_flash then
-    --   atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
-    -- else
-    atProgress[self.uiCurrentFile].iteration_flash = total_flash
+    if iteration_flash < total_flash then
+      atProgress[self.uiCurrentFile].iteration_flash = iteration_flash + 1
+    else
     atProgress[self.uiCurrentFile].finalize_flash = true
-    -- end
+    end
   end
-
-  -- self.tLog.debug('[flash progress] %s / %s', tostring(ulCnt), tostring(ulMax))
 
   atProgress[self.uiCurrentFile].pos_flash = fPercent
 
@@ -521,11 +522,13 @@ function TestClassWFP:run()
                   ulDataOffset = ulDataOffset + ulChunkSize
                   ultotal = ultotal + 1
                 end
-                return 4 * ultotal
-                -- 4 times - For each progress one interval:
+                return 2 * ultotal
+                -- 4 times or 3 times - For each progress one interval:
                 -- functions in flashArea:
                 -- write_image - only one progress -> 1
-                -- flash (calls callFlasher) - one progress in callback_progress - two progresses in callback_message -> 3
+                -- flash (calls callFlasher) - one progress in callback_progress - two (write + verify) progresses in callback_message (SQI flash) OR one (write) progresses in callback_message (IF flash) -> 3 or 4
+                --! Due the difference between the progresses within the callback message function, the progress of callback message functions are ignored for flashArea.
+                --! Only the progress of callback progress are considered for flashArea.
               end
 
               self.atProgressInfo[self.uiCurrentFile].total_flash = numb_flash_progress()
