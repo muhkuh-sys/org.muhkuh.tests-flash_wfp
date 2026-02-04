@@ -56,7 +56,7 @@ class Interaction extends React.Component {
         tProgress = (<LinearProgress key={strKey+"progress"} variant="buffer" value={uiFlash} valueBuffer={uiErase} />);
       }
 
-      atElements.push(<div key={strKey+"div1"} style={{display: 'block', margin: '1em'}}><Typography variant="body1">{tData.display}</Typography>{tProgress}</div>);
+      atElements.push(<div key={strKey+"div1"} style={{display: 'block', margin: '1em'}}><Typography variant="body1">{tData.display} | Erase = {(tData.pos_erase * 100) / uiTotal}% | Flash = {(tData.pos_flash * 100) / uiTotal}%</Typography>{tProgress}</div>);
     }, this);
 
     return (
@@ -64,6 +64,7 @@ class Interaction extends React.Component {
         <div style={{width: '100%'}}>
           <Typography align="center" variant="h2" gutterBottom>Flashing...</Typography>
           <Typography align="center" variant="h4" gutterBottom>Zeigt noch Mist an, aber solange es sich bewegt, lebt es.</Typography>
+          <Typography align="center" variant="h4" gutterBottom>Test Ladebalken v3</Typography>
         </div>
 
         <div>{atElements}</div>
