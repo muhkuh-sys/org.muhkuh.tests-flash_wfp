@@ -63,8 +63,6 @@ class Interaction extends React.Component {
       <div>
         <div style={{width: '100%'}}>
           <Typography align="center" variant="h2" gutterBottom>Flashing...</Typography>
-          <Typography align="center" variant="h4" gutterBottom>Zeigt noch Mist an, aber solange es sich bewegt, lebt es.</Typography>
-          <Typography align="center" variant="h4" gutterBottom>Test Ladebalken v3</Typography>
         </div>
 
         <div>{atElements}</div>
